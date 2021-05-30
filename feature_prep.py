@@ -3,7 +3,7 @@ from distributed import Client
 import dask_ml.preprocessing as dPP
 # from dask_ml.preprocessing import OneHotEncoder
 
-client=Client()
+client = Client()
 
 df1 = dd.read_csv("sample_orig_2009.txt", delimiter="|", header=None, dtype={26:"object", 28:"object"})
 df2 = dd.read_csv('sample_svcg_2009.txt', delimiter="|", header = None, dtype=object)
@@ -57,27 +57,26 @@ df1["Occupancy Status"] = df1["Occupancy Status"].cat.as_known()
 df1 = df1.assign(id=(df1["Occupancy Status"].cat.codes))
 df1.compute()
 
-ohe = dPP.OneHotEncoder()
+ohe = dPP.OneHotEncoder(sparse=False)
 ohe.fit(df1[["Loan Purpose", "First Time Homebuyer Flag", "Property Type", "Occupancy Status"]])
 features = ohe.transform(df1[["Loan Purpose", "First Time Homebuyer Flag", "Property Type", "Occupancy Status"]]).compute()
 
 
 features["Is FRM"] = (df1["Amortization Type"]=="FRM").astype(int)
 
-
 meanValues = df1[["Credit Score", "DTI Ratio", "CLTV"]].mean().compute()
 
 features["Credit Score"] = df1["Credit Score"].replace({9999: meanValues["Credit Score"]})#.compute()
 features["DTI Ratio"] = df1["DTI Ratio"].replace({999: meanValues["DTI Ratio"]})#.compute()
-features["CLTV"] = df1["CLTV"].replace({999: meanValues["CLTV"]}).#compute()
+features["CLTV"] = df1["CLTV"].replace({999: meanValues["CLTV"]})#.compute()
 
 
 standardizer = dPP.StandardScaler()
 standardizer.fit(features[["Credit Score", "DTI Ratio", "CLTV"]])
 features[["Credit Score", "DTI Ratio", "CLTV"]] = standardizer.transform(features[["Credit Score", "DTI Ratio", "CLTV"]])
 
-
-
+features["Loan Sequence Number"] = df1["Loan Sequence Number"]
+features.to_parquet(path='s3://ds102-tophbeifong-scratch/features.parquet')
 
 # list(df2[df2["Loan Sequence Number"]=="F09Q10000078"]["Current Loan Delinquency Status"].compute())
 #
